@@ -22,8 +22,6 @@ services:
       service: odoo
     build:
       args:
-        # To aggregate in development, use `setup-devel.yaml`
-        AGGREGATE: "false"
         # Export these variables to own files created by odoo in your filesystem
         UID: "${UID:-1000}"
         GID: "${GID:-1000}"
@@ -43,9 +41,6 @@ services:
       WDB_WEB_PORT: "{{ macros.version_major(odoo_version) }}984"
       # To avoid installing demo data export DOODBA_WITHOUT_DEMO=all
       WITHOUT_DEMO: "${DOODBA_WITHOUT_DEMO-false}"
-    volumes:
-      - ./odoo/custom:/opt/odoo/custom:ro,z
-      - ./odoo/auto:/opt/odoo/auto:rw,z
     depends_on:
       - cdnjs_cloudflare_proxy
       - db
