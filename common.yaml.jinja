@@ -17,14 +17,22 @@ services:
         ODOO_VERSION: "{{ macros.version_minor(odoo_version) }}"
         UID: "${UID:-1000}"
         GID: "${GID:-1000}"
+        # To aggregate in use `setup-devel.yaml`
+        AGGREGATE: "false"
+        PIP_INSTALL_ODOO: "false"
+        CLEAN: "false"
+        COMPILE: "false"
     environment:
       EMAIL_FROM: "{{ smtp_default_from|default("", true) }}"
       PGDATABASE: &dbname {{ postgres_dbname }}
       PGUSER: &dbuser "{{ postgres_username }}"
       PROXY_MODE: "{% if odoo_proxy %}true{% else %}false{% endif %}"
+      PYTHONPATH: /opt/odoo/custom/src/odoo
     tty: true
     volumes:
       - filestore:/var/lib/odoo
+      - ./odoo/custom:/opt/odoo/custom:ro,z
+      - ./odoo/auto:/opt/odoo/auto:rw,z
     {%- if odoo_proxy == "traefik" %}
     labels:
       traefik.backend.buffering.retryExpression: IsNetworkError() && Attempts() < 5
