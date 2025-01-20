@@ -99,7 +99,7 @@ _migrations:
 odoo_version:
   help: On which odoo version is it based?
   type: float
-  default: 17.0
+  default: 18.0
   choices:
     - 7.0
     - 8.0
@@ -112,6 +112,7 @@ odoo_version:
     - 15.0
     - 16.0
     - 17.0
+    - 18.0
 
 odoo_proxy:
   default: traefik
@@ -124,6 +125,17 @@ odoo_proxy:
     can create performance problems.
 
     Which proxy will you use to deploy odoo?
+
+traefik_version:
+  type: int
+  default: 2
+  when: "{{ odoo_proxy == 'traefik' }}"
+  help: >
+    Indicate Traefik version( v2 recommended )
+  choices:
+    v1.7: 1
+    v2.4: 2
+    v3.0: 3
 
 odoo_initial_lang:
   default: en_US
@@ -349,7 +361,7 @@ cidr_whitelist:
     ⚠️ It must be a list. And this is only supported if you deploy with Traefik 2+.
 
 postgres_version:
-  default: "15"
+  default: "16"
   help: >-
     Which PostgreSQL version do you want to deploy? (Recommended: for new instances
     always use the latest version. Version 9.6 has no backup support.)
@@ -362,6 +374,7 @@ postgres_version:
     "13": "13"
     "14": "14"
     "15": "15"
+    "16": "16"
   validator: >-
     {% if postgres_version|int > 0 %} {% if (odoo_version >= 16.0 and
     postgres_version|int < 12) or (odoo_version >= 14.0 and postgres_version|int < 10)
@@ -401,7 +414,7 @@ postgres_exposed:
 postgres_exposed_port:
   default: 5432
   type: int
-  when: &db_exposed "{{ postgres_exposed and true }}"
+  when: &db_exposed "{{ postgres_exposed and traefik_version != 3 }}"
   help: >-
     Indicate the port to connect to the database.
 
@@ -477,7 +490,7 @@ smtp_relay_password:
 smtp_relay_version:
   type: str
   when: *has_smtp
-  default: "10"
+  default: "13"
   help: >-
     Doodba uses docker-mailserver as the local mail relay.
 

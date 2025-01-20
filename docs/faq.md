@@ -189,7 +189,7 @@ version: "2.1"
 
 services:
   proxy:
-    image: docker.io/traefik:1.6-alpine
+    image: docker.io/traefik:1.7-alpine
     networks:
       shared:
       private:
@@ -257,7 +257,192 @@ volumes:
 <details>
 <summary>Traefik v2 docker compose</summary>
 
-![TODO](https://media.giphy.com/media/26gspO0c90QDHEQQ8/giphy.gif)
+```yaml
+version: "2.4"
+services:
+  proxy:
+    image: traefik:2.4
+    networks:
+      shared:
+        aliases: []
+      private:
+      public:
+    volumes:
+      - acme:/etc/traefik/acme:rw,Z
+    ports:
+      - 80:80
+      - 443:443
+    depends_on:
+      - dockersocket
+    restart: unless-stopped
+    tty: true
+    command:
+      - "--entrypoints.web-insecure.address=:80"
+      - "--entrypoints.web-main.transport.respondingTimeouts.idleTimeout=60s"
+      - "--entrypoints.web-main.http.middlewares=global-error-502@docker"
+      - "--log.level=info"
+      - "--providers.docker.endpoint=http://dockersocket:2375"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=inverseproxy_shared"
+      - "--providers.docker=true"
+      - "--entrypoints.web-main.address=:443"
+      - "--entrypoints.web-main.http.tls.certResolver=letsencrypt"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.letsencrypt.acme.email=alerts@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme-v2.json"
+      - "--entrypoints.web-insecure.http.redirections.entryPoint.to=web-main"
+      - "--entrypoints.web-insecure.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web-insecure"
+  dockersocket:
+    image: tecnativa/docker-socket-proxy
+    privileged: true
+    networks:
+      private:
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      SERVICES: 1
+      SWARM: 1
+      TASKS: 1
+    restart: unless-stopped
+  error-handling:
+    image: nginx:alpine
+    restart: unless-stopped
+    networks:
+      - shared
+    volumes:
+      - error-handling-config:/etc/nginx/conf.d/
+      - error-handling-data:/usr/share/nginx/html/
+    labels:
+      traefik.docker.network: inverseproxy_shared
+      traefik.enable: "true"
+      traefik.http.routers.error-handling.rule: HostRegexp(`{any:.+}`)
+      traefik.http.routers.error-handling.entrypoints: web-main
+      traefik.http.routers.error-handling.priority: 1
+      traefik.http.routers.error-handling.service: global-error-handler
+      traefik.http.routers.error-handling.middlewares: global-error-502
+      traefik.http.middlewares.global-error-502.errors.status: 502
+      traefik.http.middlewares.global-error-502.errors.service: global-error-handler
+      traefik.http.middlewares.global-error-502.errors.query: "/{status}.html"
+      traefik.http.services.global-error-handler.loadbalancer.server.port: 80
+networks:
+  shared:
+    internal: true
+    driver_opts:
+      encrypted: 1
+  private:
+    internal: true
+    driver_opts:
+      encrypted: 1
+  public:
+    driver_opts:
+      encrypted: 1
+volumes:
+  acme:
+  error-handling-config:
+  error-handling-data:
+```
+
+</details>
+
+<details>
+<summary>Traefik v3 docker compose</summary>
+
+```yaml
+version: "2.4"
+services:
+  proxy:
+    image: traefik:3.0
+    networks:
+      shared:
+        aliases: []
+      private:
+      public:
+    volumes:
+      - acme:/etc/traefik/acme:rw,Z
+    ports:
+      - 80:80
+      - 443:443
+      - 5432:5432 # Add this port for direct database access
+    depends_on:
+      - dockersocket
+    restart: unless-stopped
+    environment:
+      AWS_ACCESS_KEY_ID: ""
+      AWS_SECRET_ACCESS_KEY: ""
+      LEGO_EXPERIMENTAL_CNAME_SUPPORT: "true"
+    tty: true
+    command:
+      - "--entrypoints.web-insecure.address=:80"
+      - "--entrypoints.web-main.transport.respondingTimeouts.idleTimeout=60s"
+      - "--entrypoints.web-main.http.middlewares=global-error-502@docker"
+      - "--log.level=info"
+      - "--providers.docker.endpoint=http://dockersocket:2375"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=inverseproxy_shared"
+      - "--providers.docker=true"
+      - "--entrypoints.web-main.address=:443"
+      - "--entrypoints.web-main.http.tls.certResolver=letsencrypt"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=https://acme-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.letsencrypt.acme.email=alerts@example.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme-v2.json"
+      - "--entrypoints.web-insecure.http.redirections.entryPoint.to=web-main"
+      - "--entrypoints.web-insecure.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web-insecure"
+      - "--entrypoints.postgres-entrypoint.address=:5432" # Define entrypoint for PostgreSQL for direct database access
+  dockersocket:
+    image: tecnativa/docker-socket-proxy
+    privileged: true
+    networks:
+      private:
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      SERVICES: 1
+      SWARM: 1
+      TASKS: 1
+    restart: unless-stopped
+  error-handling:
+    image: nginx:alpine
+    restart: unless-stopped
+    networks:
+      - shared
+    volumes:
+      - error-handling-config:/etc/nginx/conf.d/
+      - error-handling-data:/usr/share/nginx/html/
+    labels:
+      traefik.docker.network: inverseproxy_shared
+      traefik.enable: "true"
+      traefik.http.routers.error-handling.rule: HostRegexp(`{any:.+}`)
+      traefik.http.routers.error-handling.entrypoints: web-main
+      traefik.http.routers.error-handling.priority: 1
+      traefik.http.routers.error-handling.service: global-error-handler
+      traefik.http.routers.error-handling.middlewares: global-error-502
+      traefik.http.middlewares.global-error-502.errors.status: 502
+      traefik.http.middlewares.global-error-502.errors.service: global-error-handler
+      traefik.http.middlewares.global-error-502.errors.query: "/{status}.html"
+      traefik.http.services.global-error-handler.loadbalancer.server.port: 80
+networks:
+  shared:
+    internal: true
+    driver_opts:
+      encrypted: 1
+  private:
+    internal: true
+    driver_opts:
+      encrypted: 1
+  public:
+    driver_opts:
+      encrypted: 1
+volumes:
+  acme:
+  error-handling-config:
+  error-handling-data:
+```
 
 </details>
 
@@ -356,11 +541,7 @@ default.
 
 ## How to use with podman?
 
-Podman 3.4+ support is experimental.
-
-⚠ You will not have [network isolation](daily-usage.md#network-isolation) until podman
-rootless networks are fully supported. See
-https://github.com/containers/podman/issues/10672 for progress on that subject.
+Podman 4+ is supported for development, provided you follow these instructions.
 
 Example usage:
 
@@ -375,11 +556,9 @@ systemctl enable --user --now podman.socket
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 # Instruct git-aggregator to use inner UID and GID 0, which podman will map to your user
 export DOODBA_GITAGGREGATE_UID=0 DOODBA_GITAGGREGATE_GID=0 DOODBA_UMASK=22
-# Disable network isolation
-export DOODBA_NETWORK_INTERNAL=false
 ```
 
-Once all that is done, continue with normal wokflow on that terminal.
+Once all that is done, continue with normal workflow on that terminal.
 
 Add those exports to your bash profile to avoid repeating them for each terminal. If you
 use `fish`, it's easier:
@@ -387,7 +566,6 @@ use `fish`, it's easier:
 ```fish
 # Fish-only syntax to save all those exports permanently
 set --universal --export DOCKER_HOST unix:///run/user/(id -u)/podman/podman.sock
-set --universal --export DOODBA_NETWORK_INTERNAL false
 set --universal --export DOODBA_GITAGGREGATE_UID 0
 set --universal --export DOODBA_GITAGGREGATE_GID 0
 set --universal --export DOODBA_UMASK 22
