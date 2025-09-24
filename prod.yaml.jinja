@@ -24,6 +24,7 @@ services:
       DB_FILTER: "{{ odoo_dbfilter | replace('$', '$$') }}"
       DOODBA_ENVIRONMENT: "${DOODBA_ENVIRONMENT-prod}"
       INITIAL_LANG: "{{ odoo_initial_lang }}"
+      LIST_DB: "{{ odoo_listdb | tojson }}"
       {%- if odoo_version >= 16.0 %}
       ODOO_BUS_PUBLIC_SAMESITE_WS: 1
       {%- endif %}
@@ -60,6 +61,7 @@ services:
               _key,
               odoo_version,
               paths_without_crawlers,
+              paths_with_crawlers,
               project_name,
             ) }}
       {%- elif traefik_version == 2 -%}
@@ -69,6 +71,7 @@ services:
               _key,
               odoo_version,
               paths_without_crawlers,
+              paths_with_crawlers,
               project_name,
             ) }}
       {%- else -%}
@@ -78,6 +81,7 @@ services:
               _key,
               odoo_version,
               paths_without_crawlers,
+              paths_with_crawlers,
               project_name,
             ) }}
       {%- endif %}
